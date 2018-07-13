@@ -1,8 +1,0 @@
-﻿  Automatic MOC and UIC for target PhonemeExtractor
-  Building Custom Rule D:/DEV/PhonemeExtractor/SourceCode/CMakeLists.txt
-  CMake does not need to re-run because D:/DEV/PhonemeExtractor/DEV_ENV/SourceCode/CMakeFiles/generate.stamp is up-to-date.
-  main.cpp
-  phonemeextractormainwindow.cpp
-  mocs_compilation.cpp
-  Generating Code...
-  PhonemeExtractor.vcxproj -> D:\DEV\PhonemeExtractor\DEV_ENV\SourceCode\Debug\PhonemeExtractor.exe

@@ -1,3 +1,0 @@
-D:/DEV/PhonemeExtractor/DEV_ENV/CMakeFiles/ALL_BUILD.dir
-D:/DEV/PhonemeExtractor/DEV_ENV/CMakeFiles/ZERO_CHECK.dir
-D:/DEV/PhonemeExtractor/DEV_ENV/SourceCode/CMakeFiles/PhonemeExtractor.dir
