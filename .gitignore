@@ -33,3 +33,7 @@
 
 #the Development environment 
 DEV_ENV/
+
+# build directories
+QtMockups/MainWindow/build-**/
+QtMockups/WaveformDisplayWidget/build-**/
