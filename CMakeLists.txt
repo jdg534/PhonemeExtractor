@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.10.0)
 
 project (PhonemeExtractor)
 
-# find the Qt5 package
+add_subdirectory(Submodules)
 
+# find the Qt5 package
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
 
 # Tell CMake to run moc when necessary:

@@ -8,6 +8,10 @@ add_executable(${PROJECT_NAME} ${SouceFiles})
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
 
+# include headers and link to the SignalAnalysis library
+target_include_directories(${PROJECT_NAME} PUBLIC ${SignalAnalysisHeaderDir})
+target_link_libraries(${PROJECT_NAME} SignalAnalysis)
+
 IF(WIN32)
 	# ensure that all of the required dll files are present for the Windows version
 	SET(TargetDlls "Qt5Core.dll;Qt5Cored.dll;Qt5Gui.dll;Qt5Guid.dll;Qt5Widgets.dll;Qt5Widgetsd.dll")
