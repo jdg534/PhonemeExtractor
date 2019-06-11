@@ -7,6 +7,7 @@ FILE(GLOB_RECURSE SouceFiles *.cpp *.h)
 add_executable(${PROJECT_NAME} ${SouceFiles})
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
+target_link_libraries(${PROJECT_NAME} Qt5::Multimedia)
 
 # include headers and link to the SignalAnalysis library
 target_include_directories(${PROJECT_NAME} PUBLIC ${SignalAnalysisHeaderDir})

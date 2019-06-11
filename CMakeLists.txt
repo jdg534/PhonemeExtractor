@@ -5,7 +5,7 @@ project (PhonemeExtractor)
 add_subdirectory(Submodules)
 
 # find the Qt5 package
-find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Core Widgets Multimedia REQUIRED)
 
 # Tell CMake to run moc when necessary:
 set(CMAKE_AUTOMOC ON)
