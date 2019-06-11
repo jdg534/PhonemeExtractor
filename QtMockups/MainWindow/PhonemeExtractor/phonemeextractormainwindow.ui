@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>733</width>
-    <height>569</height>
+    <height>598</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -59,9 +59,19 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_mainWaveformTargetSelection">
+           <widget class="QLabel" name="label_NumSegToSplitInto">
             <property name="text">
-             <string>Target Selection</string>
+             <string>Number of segments to split into:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="spinBox_NumSegToSplitInto">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
             </property>
            </widget>
           </item>
@@ -76,62 +86,9 @@
       <property name="title">
        <string>Extraction</string>
       </property>
-      <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
-        <widget class="QGroupBox" name="groupBox_currentSelection">
-         <property name="title">
-          <string>Current Selection</string>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
-          <item>
-           <widget class="QWidget" name="target_waveformWidget" native="true">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>100</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="groupBox_mainWaveFormControls_2">
-            <property name="title">
-             <string>Controls</string>
-            </property>
-            <layout class="QHBoxLayout" name="horizontalLayout_2">
-             <item>
-              <widget class="QPushButton" name="pushButton_targetPlay">
-               <property name="text">
-                <string>Play</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="pushButton_mainWaveFormPause_2">
-               <property name="text">
-                <string>Pause</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="pushButton_mainWaveFormStop_2">
-               <property name="text">
-                <string>Stop</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="pushButton_targetSectionPreviewSpectrum">
-               <property name="text">
-                <string>Preview Spectrum</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-         </layout>
-        </widget>
+        <widget class="QWidget" name="widget_MainWaveformSegmentDft" native="true"/>
        </item>
        <item>
         <widget class="QTableWidget" name="tableWidget_identifiedPhonemes">
@@ -145,6 +102,11 @@
          </column>
          <column>
           <property name="text">
+           <string>DFT Magintude Delta</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
            <string>Start Point</string>
           </property>
          </column>
@@ -154,6 +116,9 @@
           </property>
          </column>
         </widget>
+       </item>
+       <item>
+        <widget class="QWidget" name="widget_ComparisonPhonemeSegmentDft" native="true"/>
        </item>
       </layout>
      </widget>
