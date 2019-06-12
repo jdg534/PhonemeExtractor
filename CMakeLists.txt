@@ -14,3 +14,4 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_subdirectory(SourceCode)
+add_subdirectory(SoundFileToDtfMagFile)
