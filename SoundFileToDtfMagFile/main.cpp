@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	std::cout << inputFilePath << " has " << inputSndBufferSampleCount << " samples" << std::endl;
 
 	double filterCutoffFrequency = 0.25; // value = 0.0 < X < 1.0
-	if (argc == 4)
+	if (argc >= 4)
 	{
 		try
 		{
@@ -70,9 +70,22 @@ int main(int argc, char *argv[])
 	}
 	
 	
+	
 	// low pass filter, 27 samples should do
-	const size_t filterSigElementCount = 27;
-	int16_t lowPassFilter[filterSigElementCount]; // note stack memory not heap
+	size_t filterSigElementCount = 27;
+	if (argc >= 5)
+	{
+		try
+		{
+			filterSigElementCount = static_cast<size_t>(atoi(argv[4]));
+		}
+		catch (...)
+		{
+			filterSigElementCount = 27;
+		}
+	}
+
+	int16_t* lowPassFilter = new int16_t[filterSigElementCount];
 	Signal::Filters::Windowed::SyncLowPassI16(lowPassFilter, filterSigElementCount, filterCutoffFrequency);
 
 	std::cout << "Generated low pass filter with " << filterSigElementCount << " samples and a normalised cut off frequency of " << filterCutoffFrequency << std::endl;
@@ -100,6 +113,7 @@ int main(int argc, char *argv[])
 	delete[] dftComplexComponent;
 	delete[] dftMag;
 	delete[] filteredSignal;
+	delete[] lowPassFilter;
 	delete[] bufferCopy;
 	delete decoder;
 
