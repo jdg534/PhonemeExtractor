@@ -5,103 +5,51 @@
 #include <chrono>
 #include <thread>
 
-#include <Signal.h>
+#include <cstdint>
 
-// https://doc.qt.io/qt-5/audiooverview.html
-#include <QAudioFormat>
-#include <QAudioDecoder>
-#include <QSound>
+#include <Signal.h> // 
 
-int main(int argc, char *argv[]);
-void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath);
-void OnSoundBufferReady();
+#ifdef _WIN32
+#include <Windows.h>
+#endif // _WIN32
 
-bool s_soundBufferReady;
 
-class SoundDecoder : public QObject
+
+// this is based off: http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
+
+// .wav file headers
+struct RiffHeader
 {
-public:
-	SoundDecoder(const std::string& pathToSoundFile)
-		: QObject(nullptr)
-		, m_pathToSoundFile(pathToSoundFile)
-		, m_finishedLoading(false)
-		, m_soundData(nullptr)
-		, m_sampleCount(0)
-	{
-	}
-
-	virtual ~SoundDecoder()
-	{
-		if (m_soundData)
-			delete[] m_soundData;
-	}
-
-	bool DecodeSound()
-	{
-		// need to get Qt to read in the file and get access to the QAudioBuffer
-		QAudioFormat desiredFormat;
-		desiredFormat.setChannelCount(1);
-		desiredFormat.setCodec("audio/pcm"); // based off example code
-		desiredFormat.setSampleType(QAudioFormat::SignedInt);
-		desiredFormat.setSampleRate(44100);
-		desiredFormat.setSampleSize(16);
-
-		QAudioDecoder *decoder = new QAudioDecoder(nullptr);
-		decoder->setAudioFormat(desiredFormat);
-		decoder->setSourceFilename(m_pathToSoundFile.c_str());
-		
-		using namespace std;
-		cout << "making connection to &QAudioDecoder::bufferReady" << endl;
-		connect(decoder, &QAudioDecoder::bufferReady, this, &SoundDecoder::OnSoundBufferReady);
-		// check the signals in https://doc.qt.io/qt-5/qaudiodecoder.html
-		cout << "starting decode" << endl;
-		decoder->start();
-
-		while (!m_finishedLoading)
-		{
-			const chrono::seconds sleepDurection(2);
-			this_thread::sleep_for(sleepDurection);
-			cout << "Sleeping for " << sleepDurection.count() << " seconds" << endl;
-		}
-		
-		cout << "disconnecting from &QAudioDecoder::bufferReady" << endl;
-		disconnect(decoder, &QAudioDecoder::bufferReady, this, &SoundDecoder::OnSoundBufferReady);
-		decoder->stop();
-		QAudioBuffer sndBuffer = decoder->read();
-
-		m_sampleCount = static_cast<uint>(sndBuffer.sampleCount());
-		if (m_sampleCount == 0)
-			return false;
-
-		m_soundData = new int16_t[m_sampleCount];
-		const size_t nBytesToMemCpy = sizeof(int16_t) * static_cast<size_t>(m_sampleCount);
-		memcpy(m_soundData, sndBuffer.data(), nBytesToMemCpy);
-
-		delete decoder;
-
-	}
-
-	
-	void GetSoundData(int16_t** outStartOfSoundData, uint& sampleCount)
-	{
-		*outStartOfSoundData = m_soundData; // breaks encapsulation, refactor once a working version is commited
-		sampleCount = m_sampleCount;
-	}
-
-private:
-	void OnSoundBufferReady()
-	{
-		std::cout << __FUNCTION__  << " called decode finished"<< std::endl;
-		m_finishedLoading = true;
-	}
-
-	const std::string m_pathToSoundFile;
-	bool m_finishedLoading;
-	int16_t* m_soundData;
-	uint m_sampleCount;
-
+	char riffStr[4]; // "RIFF"
+	std::int32_t chunkSize;
 };
 
+struct WaveHeader
+{
+	char waveStr[4]; // "WAVE"
+	char fmtStr[4]; // "fmt "
+	std::int32_t chunkSize; // 16 expected
+};
+
+struct WaveformDescHeader
+{
+	std::int16_t wFormatTag;
+	std::int16_t nChannels;
+	std::int32_t nSamplesPerSec;
+	std::int32_t nAvgBytesPerSec;
+	std::int16_t nBlockAlign;
+	std::int16_t wBitsPerSample;
+};
+
+struct DataChunkHeader
+{
+	char idStr[4]; // "data"
+	std::int32_t chunkSize; // n bytes to read?
+};
+
+int main(int argc, char *argv[]);
+void LoadWavFile(int16_t** OUT_samples, size_t& OUT_nSamples, const std::string& fileStr); // assume uses heap if OUT_samples is changed
+void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath);
 
 int main(int argc, char *argv[])
 {
@@ -114,26 +62,25 @@ int main(int argc, char *argv[])
 	const std::string inputFilePath = argv[1];
 	const std::string outputFilePath = argv[2];
 
-	s_soundBufferReady = false;
+	
 
 	std::cout << "Attempting to load " << inputFilePath << std::endl;
 
-	// QSound* sndFile = new QSound(inputFilePath.c_str());
-	// delete sndFile;
+	size_t numberOfSoundSamples = 0;
+	int16_t* soundData = nullptr;
 
-	SoundDecoder sndDeCoder(inputFilePath);
+	LoadWavFile(&soundData, numberOfSoundSamples, inputFilePath);
 
-	if (!sndDeCoder.DecodeSound())
+	if (soundData == nullptr)
 	{
-		std::cout << "failed to load " << inputFilePath << std::endl;
+		std::cout << "failed to load " << inputFilePath <<  std::endl;
 		return 2;
 	}
 
 	std::cout << inputFilePath << " loaded" << std::endl;
 
-	uint numberOfSoundSamples = 0;
-	int16_t* soundData = nullptr;
-	sndDeCoder.GetSoundData(&soundData, numberOfSoundSamples);
+	
+	
 	
 	std::cout << inputFilePath << " has " << numberOfSoundSamples << " samples" << std::endl;
 
@@ -197,6 +144,33 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+void LoadWavFile(int16_t** samples, size_t& nSamples, const std::string& fileStr)
+{
+	std::ifstream inFile(fileStr, std::ios::binary);
+
+	if (!inFile.good())
+		return;
+
+	// the file exists
+
+	RiffHeader riffHeader;
+	WaveHeader waveHeader;
+	WaveformDescHeader waveformDescHeader;
+	DataChunkHeader dataChunkHeader;
+
+	inFile.read(reinterpret_cast<char*>(&riffHeader), sizeof(RiffHeader));
+	inFile.read(reinterpret_cast<char*>(&waveHeader), sizeof(WaveHeader));
+	inFile.read(reinterpret_cast<char*>(&waveformDescHeader), sizeof(WaveformDescHeader));
+	inFile.read(reinterpret_cast<char*>(&dataChunkHeader), sizeof(DataChunkHeader));
+
+
+	// pick up here
+#ifdef _WIN32
+	DebugBreak(); // for testing
+#endif
+
+}
+
 void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath)
 {
 	std::ofstream output(outputFilePath);
@@ -206,9 +180,4 @@ void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesI
 	}
 	output.flush();
 	output.close();
-}
-
-void OnSoundBufferReady()
-{
-	s_soundBufferReady = true;
 }
