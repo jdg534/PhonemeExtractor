@@ -9,12 +9,6 @@
 
 #include <Signal.h> // 
 
-#ifdef _WIN32
-#include <Windows.h>
-#endif // _WIN32
-
-
-
 // this is based off: http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
 
 // .wav file headers
@@ -135,6 +129,7 @@ int main(int argc, char *argv[])
 	DumpWaveformToFileI16(dftMag, dftArraySize, outputFilePath.c_str());
 	std::cout << "DONE" << std::endl;
 
+	delete[] soundData;
 	delete[] dftRealComponent;
 	delete[] dftComplexComponent;
 	delete[] dftMag;
@@ -163,12 +158,23 @@ void LoadWavFile(int16_t** samples, size_t& nSamples, const std::string& fileStr
 	inFile.read(reinterpret_cast<char*>(&waveformDescHeader), sizeof(WaveformDescHeader));
 	inFile.read(reinterpret_cast<char*>(&dataChunkHeader), sizeof(DataChunkHeader));
 
+	if (waveformDescHeader.wBitsPerSample != 16 || waveformDescHeader.nChannels != 1)
+	{
+		std::cout << "could read " << fileStr << " but the audio data needs to be 16 bit pcm with only 1 channel" << std::endl;
+		std::cout << "bits per sample reported as " << waveformDescHeader.wBitsPerSample << " bit with " << waveformDescHeader.nChannels << " channels" << std::endl;
+	}
 
-	// pick up here
-#ifdef _WIN32
-	DebugBreak(); // for testing
-#endif
+	nSamples = static_cast<size_t>(dataChunkHeader.chunkSize / 2); // dataChunkHeader.chunkSize is in bytes, int16 takes 2 bytes per sample
+	*samples = new int16_t[nSamples];
+	std::memset(*samples, 0, nSamples);
 
+	// need to check that this is reading correctly
+	inFile.read(reinterpret_cast<char*>(*samples), dataChunkHeader.chunkSize);
+	inFile.close();
+
+#ifdef _DEBUG
+	DumpWaveformToFileI16(*samples, nSamples, "ReadWaveFormDump.txt"); // needed to check the samples are being read correctly, use gnuplot 
+#endif // _DEBUG
 }
 
 void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath)
