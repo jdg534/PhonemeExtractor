@@ -128,7 +128,15 @@ int main(int argc, char *argv[])
 	std::cout << "Writing Discrete Fourier Transform Magnitude to " << outputFilePath << std::endl;
 	DumpWaveformToFileI16(dftMag, dftArraySize, outputFilePath.c_str());
 	std::cout << "DONE" << std::endl;
-
+#ifdef _DEBUG
+	std::cout << "(Debug build only) dumping waveforms use gnuplot to check the waveform" << std::endl;
+	const std::string outFilePreFix = "DEBUG_" + inputFilePath.substr(0, inputFilePath.find_last_of('.'));
+	DumpWaveformToFileI16(soundData, numberOfSoundSamples, (outFilePreFix + "_waveform.txt").c_str());
+	DumpWaveformToFileI16(lowPassFilter, filterSigElementCount, (outFilePreFix + "_fliter.txt").c_str());
+	DumpWaveformToFileI16(filteredSignal, filteredWaveformSampleCount, (outFilePreFix + "_given_filter.txt").c_str());
+	DumpWaveformToFileI16(dftRealComponent, dftArraySize, (outFilePreFix + "_dft_real_component.txt").c_str());
+	DumpWaveformToFileI16(dftComplexComponent, dftArraySize, (outFilePreFix + "_dft_complex_component.txt").c_str());
+#endif // _DEBUG
 	delete[] soundData;
 	delete[] dftRealComponent;
 	delete[] dftComplexComponent;
@@ -171,10 +179,6 @@ void LoadWavFile(int16_t** samples, size_t& nSamples, const std::string& fileStr
 	// need to check that this is reading correctly
 	inFile.read(reinterpret_cast<char*>(*samples), dataChunkHeader.chunkSize);
 	inFile.close();
-
-#ifdef _DEBUG
-	DumpWaveformToFileI16(*samples, nSamples, "ReadWaveFormDump.txt"); // needed to check the samples are being read correctly, use gnuplot 
-#endif // _DEBUG
 }
 
 void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath)
