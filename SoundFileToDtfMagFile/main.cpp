@@ -42,8 +42,9 @@ struct DataChunkHeader
 };
 
 int main(int argc, char *argv[]);
-void LoadWavFile(int16_t** OUT_samples, size_t& OUT_nSamples, const std::string& fileStr); // assume uses heap if OUT_samples is changed
+void LoadWavFile(double** OUT_samples, size_t& OUT_nSamples, const std::string& fileStr); // assume uses heap if OUT_samples is changed
 void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath);
+void DumpWaveformToFileD(const double* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath);
 
 int main(int argc, char *argv[])
 {
@@ -54,14 +55,19 @@ int main(int argc, char *argv[])
 	}
 	
 	const std::string inputFilePath = argv[1];
-	const std::string outputFilePath = argv[2];
+	const std::string outputFilePath = argv[2]; // ignore it need to refactor
 
 	
+	/* new plan, mimic Audacity's approach for frequency analysis
+	use blackman window filter
+	the drop down is labeled "Spectrum" their docs say it's an FFT	
+	*/
+
 
 	std::cout << "Attempting to load " << inputFilePath << std::endl;
 
 	size_t numberOfSoundSamples = 0;
-	int16_t* soundData = nullptr;
+	double* soundData = nullptr;
 
 	LoadWavFile(&soundData, numberOfSoundSamples, inputFilePath);
 
@@ -72,82 +78,49 @@ int main(int argc, char *argv[])
 	}
 
 	std::cout << inputFilePath << " loaded" << std::endl;
-
-	
-	
-	
 	std::cout << inputFilePath << " has " << numberOfSoundSamples << " samples" << std::endl;
 
-	double filterCutoffFrequency = 0.25; // value = 0.0 < X < 1.0
-	if (argc >= 4)
-	{
-		try
-		{
-			filterCutoffFrequency = strtod(argv[3], NULL);
-		}
-		catch (...)
-		{
-			filterCutoffFrequency = 0.25;
-		}
-	}
-	
-	// low pass filter, 27 samples should do
-	size_t filterSigElementCount = 27;
-	if (argc >= 5)
-	{
-		try
-		{
-			filterSigElementCount = static_cast<size_t>(atoi(argv[4]));
-		}
-		catch (...)
-		{
-			filterSigElementCount = 27;
-		}
-	}
+	// plan: DFT first, Blackman window 
+	std::cout << "Calculating DFT on loaded waveform" << std::endl;
+	const size_t dftComponentArraySize = (numberOfSoundSamples / 2) + 1;
+	double* dftRealComponent = new double[dftComponentArraySize];
+	double* dftComplexComponent = new double[dftComponentArraySize];
+	double* dftMag = new double[dftComponentArraySize];
+	Signal::FourierTransforms::DiscreteFourierTransformD(soundData, numberOfSoundSamples, dftRealComponent, dftComplexComponent);
+	Signal::FourierTransforms::DiscreteFourierTransformMagnitudeD(dftMag, dftRealComponent, dftComplexComponent, dftComponentArraySize);
 
-	int16_t* lowPassFilter = new int16_t[filterSigElementCount];
-	Signal::Filters::Windowed::SyncLowPassI16(lowPassFilter, filterSigElementCount, filterCutoffFrequency);
+	const size_t backmanWindowSampleCount = dftComponentArraySize / 2;
+	double* backmanFilter = new double[backmanWindowSampleCount];
+	Signal::Filters::Windowed::BlackmanD(backmanFilter, backmanWindowSampleCount);
 
-	std::cout << "Generated low pass filter with " << filterSigElementCount << " samples and a normalised cut off frequency of " << filterCutoffFrequency << std::endl;
+	const size_t convolutionArraySize = backmanWindowSampleCount + dftComponentArraySize;
+	double* convolutionArray = new double[convolutionArraySize];
+	Signal::Convolution::ConvolutionD(dftMag, dftComponentArraySize, backmanFilter, backmanWindowSampleCount, convolutionArray);
 
-	const size_t filteredWaveformSampleCount = static_cast<size_t>(numberOfSoundSamples) + filterSigElementCount;
-	int16_t* filteredSignal = new int16_t[filteredWaveformSampleCount];
+	// write output files
 
-	Signal::Convolution::ConvolutionI16(soundData, static_cast<size_t>(numberOfSoundSamples), lowPassFilter, filterSigElementCount, filteredSignal);
-	std::cout << "Calculated filtered signal" << std::endl;
-	
-	const size_t dftArraySize = (filteredWaveformSampleCount / 2) + 1;
-	int16_t* dftRealComponent = new int16_t[dftArraySize];
-	int16_t* dftComplexComponent = new int16_t[dftArraySize];
-	int16_t* dftMag = new int16_t[dftArraySize];
-	std::cout << "Calculating Discrete Fourier Transform" << std::endl;
-	Signal::FourierTransforms::DiscreteFourierTransformI16(filteredSignal, filteredWaveformSampleCount, dftRealComponent, dftComplexComponent);
-	std::cout << "Calculating Discrete Fourier Transform Magnitude" << std::endl;
-	Signal::FourierTransforms::DiscreteFourierTransformMagnitudei16(dftMag, dftRealComponent, dftComplexComponent, dftArraySize);
+	const size_t inputFilePathExtSubStr = inputFilePath.find_last_of(".");
+	const std::string outFileStart = inputFilePath.substr(0, inputFilePathExtSubStr);
 
-	std::cout << "Writing Discrete Fourier Transform Magnitude to " << outputFilePath << std::endl;
-	DumpWaveformToFileI16(dftMag, dftArraySize, outputFilePath.c_str());
-	std::cout << "DONE" << std::endl;
-#ifdef _DEBUG
-	std::cout << "(Debug build only) dumping waveforms use gnuplot to check the waveform" << std::endl;
-	const std::string outFilePreFix = "DEBUG_" + inputFilePath.substr(0, inputFilePath.find_last_of('.'));
-	DumpWaveformToFileI16(soundData, numberOfSoundSamples, (outFilePreFix + "_waveform.txt").c_str());
-	DumpWaveformToFileI16(lowPassFilter, filterSigElementCount, (outFilePreFix + "_fliter.txt").c_str());
-	DumpWaveformToFileI16(filteredSignal, filteredWaveformSampleCount, (outFilePreFix + "_given_filter.txt").c_str());
-	DumpWaveformToFileI16(dftRealComponent, dftArraySize, (outFilePreFix + "_dft_real_component.txt").c_str());
-	DumpWaveformToFileI16(dftComplexComponent, dftArraySize, (outFilePreFix + "_dft_complex_component.txt").c_str());
-#endif // _DEBUG
+	DumpWaveformToFileD(soundData, numberOfSoundSamples, (outFileStart + "_waveformDump.txt").c_str());
+	DumpWaveformToFileD(dftRealComponent, dftComponentArraySize, (outFileStart + "_dft_real.txt").c_str());
+	DumpWaveformToFileD(dftComplexComponent, dftComponentArraySize, (outFileStart + "_dft_complex.txt").c_str());
+	DumpWaveformToFileD(dftMag, dftComponentArraySize, (outFileStart + "_dft_mag.txt").c_str());
+	DumpWaveformToFileD(backmanFilter, backmanWindowSampleCount, (outFileStart + "_filter.txt").c_str());
+	DumpWaveformToFileD(convolutionArray, convolutionArraySize, (outFileStart + "_convolution.txt").c_str());
+
+	// clean up
 	delete[] soundData;
 	delete[] dftRealComponent;
 	delete[] dftComplexComponent;
 	delete[] dftMag;
-	delete[] filteredSignal;
-	delete[] lowPassFilter;
+	delete[] backmanFilter;
+	delete[] convolutionArray;
 
     return 0;
 }
 
-void LoadWavFile(int16_t** samples, size_t& nSamples, const std::string& fileStr)
+void LoadWavFile(double** samples, size_t& nSamples, const std::string& fileStr)
 {
 	std::ifstream inFile(fileStr, std::ios::binary);
 
@@ -173,15 +146,42 @@ void LoadWavFile(int16_t** samples, size_t& nSamples, const std::string& fileStr
 	}
 
 	nSamples = static_cast<size_t>(dataChunkHeader.chunkSize / 2); // dataChunkHeader.chunkSize is in bytes, int16 takes 2 bytes per sample
-	*samples = new int16_t[nSamples];
-	std::memset(*samples, 0, nSamples);
-
+	int16_t* readSamples = new int16_t[nSamples];
+	std::memset(readSamples, 0, nSamples);
 	// need to check that this is reading correctly
-	inFile.read(reinterpret_cast<char*>(*samples), dataChunkHeader.chunkSize);
+	inFile.read(reinterpret_cast<char*>(readSamples), dataChunkHeader.chunkSize);
 	inFile.close();
+
+	// copy readSamples to samples
+
+	*samples = new double[nSamples];
+
+	constexpr double scaleToDoubleRange = 1.0 / 65535.0;
+
+	int16_t currentSample = 0;
+	double convertion = 0.0;
+	for (size_t i = 0; i < nSamples; ++i)
+	{
+		currentSample = readSamples[i];
+		convertion = static_cast<double>(currentSample);
+		convertion *= scaleToDoubleRange;
+		samples[0][i] = convertion;
+	}
+	delete[] readSamples;
 }
 
 void DumpWaveformToFileI16(const int16_t* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath)
+{
+	std::ofstream output(outputFilePath);
+	for (size_t i = 0; i < nSamplesInWaveform; ++i)
+	{
+		output << waveFormToDump[i] << std::endl;
+	}
+	output.flush();
+	output.close();
+}
+
+void DumpWaveformToFileD(const double* waveFormToDump, const size_t nSamplesInWaveform, const char* outputFilePath)
 {
 	std::ofstream output(outputFilePath);
 	for (size_t i = 0; i < nSamplesInWaveform; ++i)
