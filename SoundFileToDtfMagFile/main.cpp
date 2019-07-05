@@ -50,19 +50,18 @@ int main(int argc, char *argv[])
 {
 	if (argc < 3) // argv[0] = executable name
 	{
-		std::cout << "Calling syntax: SoundFileToDftMag <path to sound file> <output .txt file> <Optional cut off frequency as double>"  << std::endl;
+		std::cout << "Calling syntax: SoundFileToDftMag <path to sound file> <INT filter window size>"  << std::endl;
 		return 1;
 	}
 	
 	const std::string inputFilePath = argv[1];
-	const std::string outputFilePath = argv[2]; // ignore it need to refactor
 
+	int windowFilterSize = std::atoi(argv[2]);
 	
 	/* new plan, mimic Audacity's approach for frequency analysis
 	use blackman window filter
 	the drop down is labeled "Spectrum" their docs say it's an FFT	
 	*/
-
 
 	std::cout << "Attempting to load " << inputFilePath << std::endl;
 
@@ -80,42 +79,45 @@ int main(int argc, char *argv[])
 	std::cout << inputFilePath << " loaded" << std::endl;
 	std::cout << inputFilePath << " has " << numberOfSoundSamples << " samples" << std::endl;
 
-	// plan: DFT first, Blackman window 
-	std::cout << "Calculating DFT on loaded waveform" << std::endl;
-	const size_t dftComponentArraySize = (numberOfSoundSamples / 2) + 1;
+	// corrected plan: blackman window filter, convolution with the window,  DFT
+
+	const size_t backmanWindowSampleCount = static_cast<size_t>(windowFilterSize);
+	double* backmanFilter = new double[backmanWindowSampleCount];
+	std::cout << "generating " << backmanWindowSampleCount << " sample blackman window filter" << std::endl;
+	Signal::Filters::Windowed::BlackmanD(backmanFilter, backmanWindowSampleCount);
+
+	const size_t postFilterWaveformSampleCount = numberOfSoundSamples + backmanWindowSampleCount;
+	double* filteredWaveform = new double[postFilterWaveformSampleCount];
+	std::cout << "calculating post filter waveform" << std::endl;
+	Signal::Convolution::ConvolutionD(soundData, numberOfSoundSamples, backmanFilter, backmanWindowSampleCount, filteredWaveform);
+
+	const size_t dftComponentArraySize = (postFilterWaveformSampleCount / 2) + 1;
 	double* dftRealComponent = new double[dftComponentArraySize];
 	double* dftComplexComponent = new double[dftComponentArraySize];
 	double* dftMag = new double[dftComponentArraySize];
-	Signal::FourierTransforms::DiscreteFourierTransformD(soundData, numberOfSoundSamples, dftRealComponent, dftComplexComponent);
+	std::cout << "Calculating DFT on filtered waveform" << std::endl;
+	Signal::FourierTransforms::DiscreteFourierTransformD(filteredWaveform, postFilterWaveformSampleCount, dftRealComponent, dftComplexComponent);
+	std::cout << "Calculating DFT magnitude on filtered waveform" << std::endl;
 	Signal::FourierTransforms::DiscreteFourierTransformMagnitudeD(dftMag, dftRealComponent, dftComplexComponent, dftComponentArraySize);
 
-	const size_t backmanWindowSampleCount = dftComponentArraySize / 2;
-	double* backmanFilter = new double[backmanWindowSampleCount];
-	Signal::Filters::Windowed::BlackmanD(backmanFilter, backmanWindowSampleCount);
-
-	const size_t convolutionArraySize = backmanWindowSampleCount + dftComponentArraySize;
-	double* convolutionArray = new double[convolutionArraySize];
-	Signal::Convolution::ConvolutionD(dftMag, dftComponentArraySize, backmanFilter, backmanWindowSampleCount, convolutionArray);
-
 	// write output files
-
 	const size_t inputFilePathExtSubStr = inputFilePath.find_last_of(".");
 	const std::string outFileStart = inputFilePath.substr(0, inputFilePathExtSubStr);
 
 	DumpWaveformToFileD(soundData, numberOfSoundSamples, (outFileStart + "_waveformDump.txt").c_str());
+	DumpWaveformToFileD(backmanFilter, backmanWindowSampleCount, (outFileStart + "_filter.txt").c_str());
+	DumpWaveformToFileD(filteredWaveform, postFilterWaveformSampleCount, (outFileStart + "_filted_waveform.txt").c_str());
 	DumpWaveformToFileD(dftRealComponent, dftComponentArraySize, (outFileStart + "_dft_real.txt").c_str());
 	DumpWaveformToFileD(dftComplexComponent, dftComponentArraySize, (outFileStart + "_dft_complex.txt").c_str());
 	DumpWaveformToFileD(dftMag, dftComponentArraySize, (outFileStart + "_dft_mag.txt").c_str());
-	DumpWaveformToFileD(backmanFilter, backmanWindowSampleCount, (outFileStart + "_filter.txt").c_str());
-	DumpWaveformToFileD(convolutionArray, convolutionArraySize, (outFileStart + "_convolution.txt").c_str());
 
 	// clean up
 	delete[] soundData;
+	delete[] backmanFilter;
+	delete[] filteredWaveform;
 	delete[] dftRealComponent;
 	delete[] dftComplexComponent;
 	delete[] dftMag;
-	delete[] backmanFilter;
-	delete[] convolutionArray;
 
     return 0;
 }
